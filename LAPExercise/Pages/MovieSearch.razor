@@ -1,0 +1,100 @@
+﻿@page "/search"
+@inject LAPExercise.Data.DatabaseContext database;
+@inject DatabaseService databaseService;
+
+<h2>Filmsuche</h2>
+
+<h5>Suche nach Filmen in einem bestimmten Zeitraum</h5>
+
+<div class="row">
+    <div class="col">
+        Zeitraum:
+    </div>
+    <div class="col">
+        <DateEdit TValue="DateTime" @bind-Date="@dateFrom" />
+    </div>
+    <div class="col">
+        <DateEdit TValue="DateTime" @bind-Date="@dateTo" />
+    </div>
+
+</div>
+<div class="row">
+    <div class="col">
+        <Button Clicked="@Filter">suche</Button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
+        <Table Responsive="true">
+            <TableHeader>
+                <TableRow>
+                    <TableHeaderCell>Genre</TableHeaderCell>
+                    <TableHeaderCell>Filmtitel</TableHeaderCell>
+                    <TableHeaderCell>Jahr</TableHeaderCell>
+                    <TableHeaderCell>Regie</TableHeaderCell>
+                </TableRow>
+            </TableHeader>
+
+            <TableBody>
+                @foreach (var x in Data)
+                {
+                    <TableRow>
+                        <TableRowCell>@x.Genre.Name</TableRowCell>
+                        <TableRowCell>@x.Title1 @x.Title2</TableRowCell>
+                        <TableRowCell>@x.Premiere.Year</TableRowCell>
+                        <TableRowCell>
+                            @{
+                                var first = true;
+                                foreach (var person in x.MovieDirectors)
+                                {
+                                    if (first)
+                                        first = false;
+                                    else
+                                    {
+                                        <Text>, </Text>
+                                    }
+
+                                    @person.Person.FirstName @person.Person.LastName
+                                }
+                            }
+                        </TableRowCell>
+                    </TableRow>
+                }
+            </TableBody>
+        </Table>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
+        <Button Clicked="@TransferData">Daten übertragen</Button>
+    </div>
+</div>
+
+@code {
+    private DateTime dateFrom = DateTime.Now;
+    private DateTime dateTo = DateTime.Now;
+
+    ICollection<LAPExercise.Data.Models.Movie> Data = new List<LAPExercise.Data.Models.Movie>();
+
+    void Filter()
+    {
+        Data = database.Movies
+            .Include(c => c.Genre)
+            .Include(c => c.MovieActors)
+                .ThenInclude(c => c.Person)
+            .Include(c => c.MovieDirectors)
+                .ThenInclude(c => c.Person)
+            .Where(c => c.Premiere >= dateFrom && c.Premiere <= dateTo && c.MovieDirectors.Count > 0)
+            .OrderBy(c => c.Genre.Name)
+            .ThenBy(c => c.Title1)
+            .ToList();
+        StateHasChanged();
+    }
+
+    void TransferData()
+    {
+        databaseService.ExecuteWorkflow(Data);
+    }
+}
